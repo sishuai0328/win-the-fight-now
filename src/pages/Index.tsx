@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -6,6 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Zap, Copy, RefreshCw, Shuffle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabaseClient';
 
 const Index = () => {
   // 默认吵架文案列表
@@ -33,6 +34,36 @@ const Index = () => {
   const [streamingResponses, setStreamingResponses] = useState<string[]>(['', '', '']);
   const [currentStreamingIndex, setCurrentStreamingIndex] = useState(0);
   const { toast } = useToast();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    // 获取当前用户
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUser(data.user);
+    };
+    getUser();
+    // 监听登录状态变化
+    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+      getUser();
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleLoginGithub = async () => {
+    await supabase.auth.signInWithOAuth({ provider: 'github' });
+  };
+
+  const handleLoginGoogle = async () => {
+    await supabase.auth.signInWithOAuth({ provider: 'google' });
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
 
   // 根据语气强烈程度和回复索引分析回复类型
   const analyzeResponseType = (response: string, index: number, intensityLevel: number) => {
@@ -240,6 +271,23 @@ ${intensity[0] <= 3 ?
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4">
+      {/* 登录按钮区域，页面最头部右侧 */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px 0 24px 0', position: 'relative', top: 0, right: 0, zIndex: 50 }}>
+        {user ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {user.user_metadata?.avatar_url && (
+              <img src={user.user_metadata.avatar_url} alt="avatar" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+            )}
+            <span style={{ marginRight: 8 }}>{user.user_metadata?.user_name || user.email}</span>
+            <Button variant="outline" size="sm" onClick={handleLogout}>退出登录</Button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="outline" size="sm" onClick={handleLoginGithub}>使用 GitHub 登录</Button>
+            <Button variant="outline" size="sm" onClick={handleLoginGoogle}>使用 Google 登录</Button>
+          </div>
+        )}
+      </div>
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center py-6">
