@@ -4,9 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Zap, Copy, RefreshCw, Shuffle } from 'lucide-react';
+import { MessageSquare, Zap, Copy, RefreshCw, Shuffle, Crown, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
+import { useUsageLimit } from '@/hooks/use-usage-limit';
+import PricingSection from '@/components/PricingSection';
+import UsageLimitModal from '@/components/UsageLimitModal';
 
 const Index = () => {
   // 默认吵架文案列表
@@ -35,6 +38,9 @@ const Index = () => {
   const [currentStreamingIndex, setCurrentStreamingIndex] = useState(0);
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
+  const { usageInfo, incrementUsage } = useUsageLimit(user);
+  const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(false);
 
   useEffect(() => {
     // 获取当前用户
@@ -63,6 +69,19 @@ const Index = () => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
+  };
+
+  const handleUpgrade = () => {
+    toast({
+      title: "功能开发中",
+      description: "付费功能正在开发中，敬请期待！我们会尽快上线这个功能。",
+    });
+    setShowUsageLimitModal(false);
+    setShowPricingModal(false);
+  };
+
+  const handleShowPricing = () => {
+    setShowPricingModal(true);
   };
 
   // 根据语气强烈程度和回复索引分析回复类型
@@ -119,6 +138,12 @@ const Index = () => {
         description: "需要输入内容才能生成回复哦！",
         variant: "destructive",
       });
+      return;
+    }
+
+    // 检查使用限制
+    if (!usageInfo.canUse) {
+      setShowUsageLimitModal(true);
       return;
     }
 
@@ -206,6 +231,9 @@ ${intensity[0] <= 3 ?
       const responseList = fullContent.split('===').map((r: string) => r.trim()).filter((r: string) => r);
       const finalResponses = responseList.slice(0, 3);
       setResponses(finalResponses);
+      
+      // 增加使用次数
+      incrementUsage();
       
       // 保存到 localStorage
       const history = JSON.parse(localStorage.getItem('quarrel-history') || '[]');
@@ -298,6 +326,40 @@ ${intensity[0] <= 3 ?
           </div>
           <p className="text-gray-600">AI助你回怼，言辞犀利不失分寸</p>
         </div>
+
+        {/* Usage Status and Upgrade Prompt */}
+        {!usageInfo.isPaidUser && (
+          <Card className="border-2 border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-yellow-600" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-800">
+                      {usageInfo.isLoggedIn ? '当前为免费用户' : '未登录用户'}
+                    </p>
+                    <p className="text-xs text-yellow-700">
+                      已使用 {usageInfo.currentRounds}/{usageInfo.maxRounds === Infinity ? '无限制' : usageInfo.maxRounds} 次对话
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {!usageInfo.isLoggedIn && (
+                    <Button size="sm" onClick={handleLoginGithub} className="bg-blue-600 hover:bg-blue-700">
+                      登录解锁更多
+                    </Button>
+                  )}
+                  {usageInfo.isLoggedIn && !usageInfo.isPaidUser && (
+                    <Button size="sm" onClick={handleShowPricing} className="bg-green-600 hover:bg-green-700">
+                      <Crown className="w-4 h-4 mr-1" />
+                      升级专业版
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Input Card */}
         <Card className="shadow-lg border-0 bg-white/80 backdrop-blur">
@@ -443,6 +505,42 @@ ${intensity[0] <= 3 ?
           <p>理性吵架，和谐社会 💚</p>
         </div>
       </div>
+
+      {/* Pricing Section */}
+      <PricingSection 
+        onUpgrade={handleUpgrade}
+        isLoggedIn={usageInfo.isLoggedIn}
+      />
+
+      {/* Usage Limit Modal */}
+      <UsageLimitModal
+        isOpen={showUsageLimitModal}
+        onClose={() => setShowUsageLimitModal(false)}
+        needsLogin={usageInfo.needsLogin}
+        needsUpgrade={usageInfo.needsUpgrade}
+        currentRounds={usageInfo.currentRounds}
+        maxRounds={usageInfo.maxRounds}
+        onLogin={handleLoginGithub}
+        onUpgrade={handleUpgrade}
+      />
+
+      {/* Pricing Modal (same as pricing section but in modal form) */}
+      {showPricingModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">升级专业版</h2>
+                <Button variant="ghost" onClick={() => setShowPricingModal(false)}>✕</Button>
+              </div>
+              <PricingSection 
+                onUpgrade={handleUpgrade}
+                isLoggedIn={usageInfo.isLoggedIn}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
