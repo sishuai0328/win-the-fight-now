@@ -233,7 +233,12 @@ ${intensity[0] <= 3 ?
       setResponses(finalResponses);
       
       // 增加使用次数
-      incrementUsage();
+      try {
+        await incrementUsage();
+        console.log('✅ incrementUsage 调用完成');
+      } catch (error) {
+        console.error('❌ incrementUsage 调用失败:', error);
+      }
       
       // 保存到 localStorage
       const history = JSON.parse(localStorage.getItem('quarrel-history') || '[]');
