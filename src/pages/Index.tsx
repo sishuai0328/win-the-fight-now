@@ -167,23 +167,40 @@ const Index = () => {
               role: 'system',
               content: `你是一个专门帮助用户回怼的助手。用户会给你一句对方说的话，以及语气强烈程度（1-10），你需要生成3条相同强烈程度但不同风格的回复。
 
-语气强烈程度${intensity[0]}，请严格按照这个强度生成回复，不要有强弱差别。
+【重要格式要求】
+请严格按照以下格式输出，每条回复之间用 === 分隔：
 
-根据强烈程度${intensity[0]}，请生成3条不同风格的回复：
+回复内容1
+===
+回复内容2  
+===
+回复内容3
+
+【注意事项】
+- 不要包含"第一条"、"第二条"等编号
+- 不要包含风格标签如"逻辑反击风格："
+- 直接输出回复内容
+- 语气强烈程度${intensity[0]}/10，三条回复保持相同强度
+- 内容机智有理，避免脏话和人身攻击
+
+根据强烈程度${intensity[0]}生成的风格要求：
 ${intensity[0] <= 3 ? 
-  '1. 第一条：理性分析风格 - 用逻辑和事实回应\n2. 第二条：温和反驳风格 - 礼貌但坚定地表达不同观点\n3. 第三条：委婉表达风格 - 用巧妙的话术化解冲突' :
+  '风格1: 理性分析 - 用逻辑和事实回应\n风格2: 温和反驳 - 礼貌但坚定表达不同观点\n风格3: 委婉表达 - 用巧妙话术化解冲突' :
   intensity[0] <= 6 ? 
-  '1. 第一条：逻辑反击风格 - 用强有力的逻辑驳倒对方\n2. 第二条：据理力争风格 - 坚持原则，有理有据\n3. 第三条：机智回应风格 - 用聪明的话术巧妙回击' :
+  '风格1: 逻辑反击 - 用强有力逻辑驳倒对方\n风格2: 据理力争 - 坚持原则，有理有据\n风格3: 机智回应 - 用聪明话术巧妙回击' :
   intensity[0] <= 8 ?
-  '1. 第一条：强势反击风格 - 气势上压倒对方\n2. 第二条：尖锐回应风格 - 直接犀利地指出问题\n3. 第三条：犀利反驳风格 - 用尖锐的言辞反击' :
-  '1. 第一条：霸气回击风格 - 气场全开，强势回应\n2. 第二条：锋芒毕露风格 - 毫不掩饰地展现实力\n3. 第三条：毫不留情风格 - 直接有力，不给对方面子'
-}
-
-请确保所有回复都保持相同的强烈程度${intensity[0]}/10，只是表达方式不同。回复内容要机智、有理有据，不使用脏话或人身攻击。每条回复用===分隔。`
+  '风格1: 强势反击 - 气势上压倒对方\n风格2: 尖锐回应 - 直接犀利地指出问题\n风格3: 犀利反驳 - 用尖锐言辞反击' :
+  '风格1: 霸气回击 - 气场全开，强势回应\n风格2: 锋芒毕露 - 毫不掩饰地展现实力\n风格3: 毫不留情 - 直接有力，不给对方面子'
+}`
             },
             {
               role: 'user',
-              content: `对方说："${opponentText}"，语气强烈程度：${intensity[0]}/10，请生成3条相同强度但不同风格的回复。`
+              content: `对方说："${opponentText}"
+
+请按照格式要求生成3条回复（语气强烈程度${intensity[0]}/10）：
+- 直接输出回复内容，不要编号和标签
+- 每条回复用===分隔
+- 确保三条回复风格不同但强度相同`
             }
           ],
           stream: true
@@ -229,9 +246,14 @@ ${intensity[0] <= 3 ?
       }
 
       // 处理完整内容并保存到历史记录
-      const responseList = fullContent.split('===').map((r: string) => r.trim()).filter((r: string) => r);
-      const finalResponses = responseList.slice(0, 3);
+      const finalResponses = parseAIResponses(fullContent);
       setResponses(finalResponses);
+      
+      console.log('🎯 最终解析结果:', {
+        原始内容长度: fullContent.length,
+        解析出回复数: finalResponses.length,
+        各回复长度: finalResponses.map(r => r.length)
+      });
       
       // 增加使用次数
       try {
@@ -263,8 +285,96 @@ ${intensity[0] <= 3 ?
     }
   };
 
+  // 智能解析AI回复的函数
+  const parseAIResponses = (content: string): string[] => {
+    console.log('🔍 原始AI回复内容:', content);
+    
+    // 方案1: 尝试用 === 分隔
+    let responseList = content.split('===').map((r: string) => r.trim()).filter((r: string) => r);
+    if (responseList.length >= 2) {
+      console.log('✅ 使用===分隔成功:', responseList.length, '条回复');
+      return responseList.slice(0, 3);
+    }
+    
+    // 方案2: 尝试用数字编号分隔 (1. 2. 3. 或 1、2、3、)
+    const numberPatterns = [
+      /(?:^|\n)\s*([1-3])[\.\、]\s*[^：:]*[：:]\s*["""]?([^"""\n]*(?:\n(?![1-3][\.\、])[^"""\n]*)*)/g,
+      /(?:^|\n)\s*([1-3])[\.\、]\s*([^1-3\n][^\n]*(?:\n(?![1-3][\.\、])[^\n]*)*)/g,
+      /(?:^|\n)\s*第?([一二三1-3])条?[：:\.\、]\s*([^\n]*(?:\n(?!第?[一二三1-3]条?[：:\.\、])[^\n]*)*)/g
+    ];
+    
+    for (const pattern of numberPatterns) {
+      const matches = [...content.matchAll(pattern)];
+      if (matches.length >= 2) {
+        responseList = matches.map(match => {
+          // 提取回复内容，去掉风格标签
+          let responseText = match[2] || match[1];
+          // 去掉可能的风格描述 (如：逻辑反击风格："xxx")
+          responseText = responseText.replace(/^[^：:"]*[：:]\s*["""]?/, '').replace(/["""]?\s*$/, '');
+          return responseText.trim();
+        }).filter(r => r.length > 0);
+        
+        if (responseList.length >= 2) {
+          console.log('✅ 使用数字编号分隔成功:', responseList.length, '条回复');
+          return responseList.slice(0, 3);
+        }
+      }
+    }
+    
+    // 方案3: 尝试用段落分隔（双换行）
+    responseList = content.split(/\n\s*\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 20);
+    if (responseList.length >= 2) {
+      console.log('✅ 使用段落分隔成功:', responseList.length, '条回复');
+      return responseList.slice(0, 3);
+    }
+    
+    // 方案4: 尝试用句号+换行分隔长句
+    responseList = content.split(/[。！？]\s*\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 15);
+    if (responseList.length >= 2) {
+      // 重新添加标点符号
+      responseList = responseList.map((r, i) => i < responseList.length - 1 ? r + '。' : r);
+      console.log('✅ 使用句号分隔成功:', responseList.length, '条回复');
+      return responseList.slice(0, 3);
+    }
+    
+    // 方案5: 如果都失败了，尝试用自然语言处理分割长文本
+    if (content.length > 100) {
+      const sentences = content.split(/[。！？；]/).filter(s => s.trim().length > 10);
+      if (sentences.length >= 3) {
+        const chunkSize = Math.ceil(sentences.length / 3);
+        responseList = [];
+        for (let i = 0; i < 3; i++) {
+          const start = i * chunkSize;
+          const end = Math.min((i + 1) * chunkSize, sentences.length);
+          const chunk = sentences.slice(start, end).join('。') + (end < sentences.length ? '。' : '');
+          if (chunk.trim()) responseList.push(chunk.trim());
+        }
+        if (responseList.length >= 2) {
+          console.log('✅ 使用智能分块成功:', responseList.length, '条回复');
+          return responseList;
+        }
+      }
+    }
+    
+    // 最后的fallback: 如果内容足够长，强制分割为3段
+    if (content.length > 60) {
+      const third = Math.ceil(content.length / 3);
+      responseList = [
+        content.slice(0, third).trim() + '...',
+        content.slice(third, third * 2).trim() + '...',
+        content.slice(third * 2).trim()
+      ].filter(r => r.length > 5);
+      console.log('⚠️ 使用强制分割fallback:', responseList.length, '条回复');
+      return responseList;
+    }
+    
+    // 如果什么都不行，就返回原内容作为单条回复
+    console.log('❌ 所有分割方案都失败，返回单条回复');
+    return [content.trim()];
+  };
+
   const simulateTyping = async (content: string) => {
-    const responseList = content.split('===').map((r: string) => r.trim()).filter((r: string) => r);
+    const responseList = parseAIResponses(content);
     
     setStreamingResponses(prev => {
       const newResponses = [...prev];
@@ -448,6 +558,11 @@ ${intensity[0] <= 3 ?
                 {isLoading && (
                   <span className="text-sm text-gray-500 ml-2">正在生成中...</span>
                 )}
+                {process.env.NODE_ENV === 'development' && (
+                  <Badge variant="outline" className="text-xs ml-auto">
+                    已解析: {displayResponses.length} 条
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -495,6 +610,28 @@ ${intensity[0] <= 3 ?
                     </div>
                   );
                 })}
+                
+                {/* 如果只有一条回复且长度过长，提示可能解析有问题 */}
+                {!isLoading && displayResponses.length === 1 && displayResponses[0].length > 200 && (
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-yellow-800">
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-sm font-medium">检测到可能的格式问题</span>
+                    </div>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      AI回复可能没有正确分割。如果这条回复包含多个建议，请点击重新生成。
+                    </p>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="mt-2 text-yellow-700 border-yellow-300 hover:bg-yellow-100"
+                      onClick={handleGenerateResponses}
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      重新生成
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
