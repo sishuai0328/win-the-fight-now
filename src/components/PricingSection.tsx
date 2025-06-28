@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, Zap, Crown } from 'lucide-react';
+import { Check, Zap, Crown, Loader2 } from 'lucide-react';
 
 interface PricingSectionProps {
   onUpgrade: () => void;
@@ -10,6 +10,64 @@ interface PricingSectionProps {
 }
 
 const PricingSection: React.FC<PricingSectionProps> = ({ onUpgrade, isLoggedIn }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleCreemCheckout = async () => {
+    if (!isLoggedIn) {
+      onUpgrade();
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      // For local development, call Creem API directly
+      const isDev = import.meta.env.DEV;
+      const apiKey = import.meta.env.VITE_CREEM_API_KEY;
+      
+      if (!apiKey) {
+        throw new Error('Creem API key not configured');
+      }
+
+      // Use local proxy server for development to avoid CORS issues
+      const apiUrl = isDev ? 'http://localhost:3001/api/create-checkout' : '/api/create-checkout';
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_id: 'prod_1yWRgfSXvAaYQ1HfRE44VR',
+          request_id: `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          metadata: {
+            env: isDev ? 'development' : 'production',
+            user_logged_in: isLoggedIn
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Creem API error:', errorText);
+        throw new Error(`Failed to create checkout session: ${response.status}`);
+      }
+
+      const checkoutData = await response.json();
+      console.log('Checkout session created:', checkoutData);
+      
+      if (checkoutData.checkout_url) {
+        window.location.href = checkoutData.checkout_url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      alert(`支付创建失败：${error.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto py-12">
       <div className="text-center mb-8">
@@ -95,11 +153,21 @@ const PricingSection: React.FC<PricingSectionProps> = ({ onUpgrade, isLoggedIn }
               </div>
             </div>
             <Button 
-              onClick={onUpgrade}
-              className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-medium py-3"
+              onClick={handleCreemCheckout}
+              disabled={isProcessing}
+              className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-medium py-3 disabled:opacity-50"
             >
-              <Zap className="w-5 h-5 mr-2" />
-              立即升级
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  处理中...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-5 h-5 mr-2" />
+                  立即升级
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>
