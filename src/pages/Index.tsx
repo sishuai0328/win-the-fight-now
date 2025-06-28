@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useUsageLimit } from '@/hooks/use-usage-limit';
 import PricingSection from '@/components/PricingSection';
 import UsageLimitModal from '@/components/UsageLimitModal';
+import UserMenu from '@/components/UserMenu';
 
 const Index = () => {
   // 默认吵架文案列表
@@ -307,13 +308,7 @@ ${intensity[0] <= 3 ?
       {/* 登录按钮区域，页面最头部右侧 */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px 0 24px 0', position: 'relative', top: 0, right: 0, zIndex: 50 }}>
         {user ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {user.user_metadata?.avatar_url && (
-              <img src={user.user_metadata.avatar_url} alt="avatar" style={{ width: 32, height: 32, borderRadius: '50%' }} />
-            )}
-            <span style={{ marginRight: 8 }}>{user.user_metadata?.user_name || user.email}</span>
-            <Button variant="outline" size="sm" onClick={handleLogout}>退出登录</Button>
-          </div>
+          <UserMenu user={user} onLogout={handleLogout} onUpgrade={handleShowPricing} />
         ) : (
           <div style={{ display: 'flex', gap: 8 }}>
             <Button variant="outline" size="sm" onClick={handleLoginGithub}>使用 GitHub 登录</Button>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import MemberInfoService from '@/lib/memberInfoService';
 
 export interface UserUsageInfo {
   isLoggedIn: boolean;
@@ -102,21 +103,10 @@ export const useUsageLimit = (user: any) => {
   const checkUserPaidStatus = async (userId: string): Promise<boolean> => {
     try {
       console.log('🔍 检查用户付费状态, user_id:', userId);
-      const { data, error } = await supabase
-        .from('payments')
-        .select('status')
-        .eq('user_id', userId)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (error) {
-        console.error('❌ 检查付费状态失败:', error);
-        return false;
-      }
-
-      const isPaid = data && data.length > 0;
-      console.log('✅ 付费状态查询结果:', isPaid, data);
+      const membershipInfo = await MemberInfoService.getUserMembershipInfo(userId);
+      
+      const isPaid = membershipInfo.isPremium;
+      console.log('✅ 付费状态查询结果:', isPaid, membershipInfo);
       return isPaid;
     } catch (error) {
       console.error('❌ 检查付费状态异常:', error);
