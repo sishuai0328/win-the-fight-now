@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, Zap, Crown, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
 
 interface PricingSectionProps {
   onUpgrade: () => void;
@@ -20,6 +21,13 @@ const PricingSection: React.FC<PricingSectionProps> = ({ onUpgrade, isLoggedIn }
 
     setIsProcessing(true);
     try {
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error('用户未登录，请先登录');
+      }
+
       // For local development, call Creem API directly
       const isDev = import.meta.env.DEV;
       const apiKey = import.meta.env.VITE_CREEM_API_KEY;
@@ -38,10 +46,12 @@ const PricingSection: React.FC<PricingSectionProps> = ({ onUpgrade, isLoggedIn }
         },
         body: JSON.stringify({
           product_id: 'prod_1yWRgfSXvAaYQ1HfRE44VR',
-          request_id: `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          user_id: user.id,
+          customer_email: user.email,
           metadata: {
             env: isDev ? 'development' : 'production',
-            user_logged_in: isLoggedIn
+            user_logged_in: isLoggedIn,
+            user_email: user.email
           },
         }),
       });
